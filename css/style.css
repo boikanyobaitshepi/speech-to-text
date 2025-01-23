@@ -70,3 +70,33 @@ body {
 #click_to_convert:active {
     transform: translateY(1px);
 }
+
+@keyframes pulse-recording {
+    0% {
+        box-shadow: 0 0 0 0 rgba(209, 60, 255, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 20px rgba(209, 60, 255, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(209, 60, 255, 0);
+    }
+}
+
+#click_to_convert {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+#click_to_convert.recording {
+    animation: pulse-recording 2s infinite;
+    background: conic-gradient(
+        #d13cff, 
+        #13d494d2, 
+        #ff6b6b, 
+        #4ecdc4, 
+        #d13cff
+    );
+    color: white;
+}
