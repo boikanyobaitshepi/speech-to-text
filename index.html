@@ -1,25 +1,25 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IELTS Speaking Simulator</title>
-    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body { font-family: sans-serif; }
+        #conversation { width: 95%; height: 200px; margin-bottom: 10px; }
+        #feedback { margin-top: 10px; }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h1>IELTS Speaking Simulator</h1>
-        <div class="mode-selection">
-            <button id="practice-mode">Practice Mode</button>
-            <button id="test-mode">Test Mode</button>
-        </div>
-        <div id="cue-card" style="display: none;"></div>
-        <textarea id="conversation" readonly></textarea>
-        <button id="start-recording">Start Recording</button>
-        <div id="feedback"></div>
-        <div id="score-display"></div>
+    <h1>IELTS Speaking Simulator</h1>
+    <div class="mode-selection">
+        <button id="practice-mode">Practice Mode</button>
+        <button id="test-mode">Test Mode</button>
     </div>
-    <script src="js/script.js"></script>
+    <div id="cue-card" style="display: none;"></div>
+    <textarea id="conversation" readonly></textarea><br>
+    <button id="start-recording">Start Recording</button>
+    <div id="feedback"></div>
+    <div id="score-display"></div>
+
+    <script src="script.js"></script>
 </body>
 </html>
-
