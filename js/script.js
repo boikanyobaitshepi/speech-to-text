@@ -1,11 +1,22 @@
-class SpeechRecognitionTool {
+class IELTSSpeakingSimulator {
     constructor() {
-        this.convertButton = document.getElementById('click_to_convert');
-        this.textArea = document.getElementById('convert_text');
-        this.feedbackArea = document.getElementById('pronunciation-feedback') || 
-                             document.createElement('div');
+        this.conversation = document.getElementById('conversation');
+        this.cueCard = document.getElementById('cue-card');
+        this.feedback = document.getElementById('feedback');
+        this.scoreDisplay = document.getElementById('score-display');
+        this.startRecordingButton = document.getElementById('start-recording');
+        this.practiceModeButton = document.getElementById('practice-mode');
+        this.testModeButton = document.getElementById('test-mode');
+
+        this.currentMode = 'practice'; // Default mode
+        this.testParts = [ /* ... (IELTS test structure as before) */ ];
+        this.currentPartIndex = 0;
+        this.currentQuestionIndex = 0;
+        this.isRecording = false;
 
         this.setupRecognition();
+        this.setupEventListeners();
+        this.startTest(); // Initialize the test on load
     }
 
     setupRecognition() {
@@ -15,87 +26,143 @@ class SpeechRecognitionTool {
             this.recognition.interimResults = false;
             this.recognition.lang = 'en-US';
 
-            this.setupEventListeners();
+            this.recognition.onstart = () => {
+                this.isRecording = true;
+                this.startRecordingButton.textContent = "Stop Recording";
+            }
+            this.recognition.onend = () => {
+                this.isRecording = false;
+                this.startRecordingButton.textContent = "Start Recording";
+            }
+
+            this.recognition.onerror = (event) => {
+                console.error("Speech recognition error:", event.error);
+                this.conversation.value += "\nSpeech recognition error.";
+                this.isRecording = false;
+                this.startRecordingButton.textContent = "Start Recording";
+            };
+            this.recognition.onresult = async (event) => {
+                const transcript = event.results[0][0].transcript;
+                this.conversation.value += "\nYou: " + transcript + "\n";
+
+                if (this.currentMode === 'test') {
+                    await this.handleTestTurn(transcript);
+                } else {
+                    this.providePronunciationFeedback(transcript);
+                }
+            };
         } else {
-            this.convertButton.disabled = true;
-            this.textArea.value = 'Speech recognition not supported in this browser';
+            this.conversation.value = "Speech Recognition is not supported in this browser.";
+            this.startRecordingButton.disabled = true;
         }
     }
 
     setupEventListeners() {
-        this.convertButton.addEventListener('click', () => this.toggleRecording());
-
-        this.recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            this.textArea.value = transcript;
-            this.providePronunciationFeedback(transcript);
-        };
-
-        this.recognition.onerror = (event) => {
-            this.textArea.value = 'Error occurred in recognition: ' + event.error;
-            this.stopRecording();
-        };
-
-        this.recognition.onend = () => {
-            this.stopRecording();
-        };
-    }
-
-    toggleRecording() {
-        if (!this.convertButton.classList.contains('recording')) {
-            this.startRecording();
-        } else {
-            this.stopRecording();
-        }
-    }
-
-    startRecording() {
-        this.textArea.value = 'Listening...';
-        this.convertButton.classList.add('recording');
-        this.convertButton.textContent = 'Recording...';
-        this.recognition.start();
-    }
-
-    stopRecording() {
-        this.convertButton.classList.remove('recording');
-        this.convertButton.textContent = 'Voice to Text';
-        this.recognition.stop();
-    }
-
-    providePronunciationFeedback(text) {
-        const commonPronunciationChallenges = {
-            'schedule': 'Try pronouncing as "sked-jool"',
-            'pronunciation': 'Focus on clear syllable separation',
-            'comfortable': 'Stress the first syllable: "KUMF-ter-bul"',
-            'vegetable': 'Pronounce as "VEJ-tuh-bul"'
-        };
-
-        let feedback = [];
-        
-        Object.entries(commonPronunciationChallenges).forEach(([word, tip]) => {
-            if (text.toLowerCase().includes(word)) {
-                feedback.push(`Word "${word}": ${tip}`);
+        this.startRecordingButton.addEventListener('click', () => {
+            if (this.isRecording) {
+                this.recognition.stop();
+            } else {
+                this.recognition.start();
             }
         });
-
-        this.displayFeedback(feedback);
+        this.practiceModeButton.addEventListener('click', () => {
+            this.currentMode = 'practice';
+            this.startTest();
+        });
+        this.testModeButton.addEventListener('click', () => {
+            this.currentMode = 'test';
+            this.startTest();
+        });
     }
 
-    displayFeedback(feedbackList) {
-        if (feedbackList.length > 0) {
-            this.feedbackArea.innerHTML = `
-                <h3>Pronunciation Tips:</h3>
-                <ul>
-                    ${feedbackList.map(tip => `<li>${tip}</li>`).join('')}
-                </ul>
-            `;
-        } else {
-            this.feedbackArea.innerHTML = 'No specific pronunciation feedback at this time.';
+    async handleTestTurn(userTranscript) {
+        let context = "";
+        if (this.currentTestPart.type === "Part 2") {
+            context = "Here is the cue card: " + this.currentTestPart.cueCard + ". ";
+        }
+        try {
+            const examinerResponse = await this.getLLMResponse(userTranscript, "You are an IELTS examiner. " + context + "The user just said: ");
+            this.conversation.value += "Examiner: " + examinerResponse + "\n";
+
+            const feedbackFromLLM = await this.getLLMResponse(userTranscript, "You are an IELTS examiner. Provide feedback on the user's fluency, grammar, and vocabulary based on this text: ");
+            this.feedback.innerHTML = "<p>" + feedbackFromLLM + "</p>";
+            this.advanceTest();
+        } catch (error) {
+            this.conversation.value += "\nError communicating with the examiner.";
+            console.error("Error in handleTestTurn:", error);
         }
     }
+
+    advanceTest() {
+        if (this.currentTestPart.type === "Part 1") {
+            this.currentQuestionIndex++;
+            if (this.currentQuestionIndex >= this.currentTestPart.questions.length) {
+                this.currentQuestionIndex = 0;
+                this.currentPartIndex++;
+                this.currentTestPart = this.testParts[this.currentPartIndex];
+                if (this.currentTestPart && this.currentTestPart.type === "Part 2") {
+                    this.cueCard.textContent = this.currentTestPart.cueCard;
+                    this.cueCard.style.display = "block";
+                }
+            }
+        } else if (this.currentTestPart && this.currentTestPart.type === "Part 2") {
+            this.currentPartIndex++;
+            if (this.currentPartIndex < this.testParts.length) {
+                this.currentTestPart = this.testParts[this.currentPartIndex];
+                if (this.currentTestPart.type === "Part 3") {
+                    this.cueCard.style.display = "none";
+                }
+            } else {
+                this.conversation.value += "\nTest Complete!";
+                this.startRecordingButton.disabled = true;
+            }
+        } else if (this.currentTestPart && this.currentTestPart.type === "Part 3") {
+            this.currentQuestionIndex++;
+            if (this.currentQuestionIndex >= this.currentTestPart.discussionQuestions.length) {
+                this.conversation.value += "\nTest Complete!";
+                this.startRecordingButton.disabled = true;
+            }
+        }
+    }
+
+    startTest() {
+        this.currentPartIndex = 0;
+        this.currentQuestionIndex = 0;
+        this.currentTestPart = this.testParts[this.currentPartIndex];
+        this.conversation.value = "";
+        this.feedback.innerHTML = "";
+        this.scoreDisplay.textContent = "";
+        this.startRecordingButton.disabled = false;
+        if (this.currentTestPart && this.currentTestPart.type === "Part 2") {
+            this.cueCard.textContent = this.currentTestPart.cueCard;
+            this.cueCard.style.display = "block";
+        } else {
+            this.cueCard.style.display = "none";
+        }
+    }
+
+    async getLLMResponse(userText, context = "") {
+        try {
+            const response = await fetch('/api/getLLMResponse', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: [{ role: "system", content: "You are an IELTS examiner." }, { role: "user", content: context + userText }] })
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            return data.response;
+        } catch (error) {
+            console.error("Error calling LLM API:", error);
+            return "Error getting response from examiner.";
+        }
+    }
+
+    providePronunciationFeedback(text) { /* ... (Pronunciation feedback as before) */ }
 }
 
-// Initialize the tool when the page loads
 document.addEventListener('DOMContentLoaded', () => {
-    new SpeechRecognitionTool();
+    new IELTSSpeakingSimulator();
 });
